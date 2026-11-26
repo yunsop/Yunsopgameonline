@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>War.sm</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #0f172a;
+            color: #e2e8f0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: #2e6f40;
+            cursor: crosshair;
+        }
+
+        /* 메인 타이틀 */
+        #main-title {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 2.2rem;
+            color: #ffffff;
+            font-family: 'Batang', 'Gungsuh', 'Noto Serif KR', serif;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* 상단 실시간 형세 & 생존 인원 표시바 */
+        #top-status-bar {
+            position: absolute;
+            top: 65px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(6px);
+            padding: 8px 20px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            font-size: 0.95rem;
+            font-weight: bold;
+            color: #e2e8f0;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .room-code-tag { color: #facc15; font-size: 1.1rem; }
+        .team-tag { font-weight: bold; }
+
+        /* 로비 오버레이 화면 */
+        #lobby-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(15, 23, 42, 0.92);
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .lobby-box {
+            background: #1e293b;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 40px;
+            border-radius: 16px;
+            text-align: center;
+            width: 380px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .lobby-title {
+            font-size: 1.8rem;
+            font-family: 'Batang', 'Gungsuh', 'Noto Serif KR', serif;
+            color: #ffffff;
+            margin-bottom: 5px;
+        }
+
+        .lobby-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .input-code {
+            padding: 12px;
+            background: #0f172a;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 1.1rem;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+
+        .lobby-btn {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-create { background: #2563eb; color: #fff; }
+        .btn-create:hover { background: #1d4ed8; }
+        .btn-join { background: #16a34a; color: #fff; }
+        .btn-join:hover { background: #15803d; }
+
+        /* 우측 상단 컨트롤 패널 */
+        #control-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 230px;
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            z-index: 10;
+        }
+
+        .panel-group { display: flex; flex-direction: column; gap: 4px; }
+        .panel-title { font-size: 0.75rem; color: #94a3b8; font-weight: 600; }
+
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+        .mini-btn {
+            padding: 6px 4px;
+            background: rgba(51, 65, 85, 0.6);
+            color: #cbd5e1;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-align: center;
+            transition: all 0.15s;
+        }
+        .mini-btn:hover { background: rgba(71, 85, 105, 0.8); color: #fff; }
+        .mini-btn.active { background: rgba(2, 132, 199, 0.8); border-color: #ffffff;
+            font-family: 'Batang', 'Gungsuh', 'Noto Serif KR', serif; color: #fff; }
+        .delete-btn { grid-column: span 2; background: rgba(127, 29, 29, 0.6); color: #fca5a5; }
+        .delete-btn.active { background: #dc2626; color: #fff; border-color: #f87171; }
+
+        .action-grid { display: grid; grid-template-columns: 1fr; gap: 5px; }
+        .action-btn {
+            padding: 8px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .ready-btn { background: rgba(34, 197, 94, 0.8); color: #052e16; }
+        .ready-btn:hover { background: #4ade80; }
+
+        #winner-banner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2.2rem;
+            font-weight: 900;
+            padding: 20px 40px;
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.95);
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            display: none;
+            text-align: center;
+            z-index: 20;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            flex-direction: column;
+            gap: 15px;
+        }
+        #restart-btn {
+            padding: 10px 20px;
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        #restart-btn:hover { background: #1d4ed8; }
+    </style>
+</head>
+<body>
+
+    <!-- 로비 화면 -->
+    <div id="lobby-overlay">
+        <div class="lobby-box">
+            <h1 class="lobby-title">전쟁 시뮬레이터</h1>
+            <p style="font-size: 0.9rem; color: #94a3b8;">1:1 온라인 대전 모드</p>
+            <button class="lobby-btn btn-create" onclick="createRoom()">방 만들기</button>
+            <div style="font-size: 0.85rem; color: #64748b; margin: 5px 0;">또는</div>
+            <div class="lobby-input-group">
+                <input type="text" id="room-code-input" class="input-code" placeholder="4자리 코드 입력" maxlength="4">
+                <button class="lobby-btn btn-join" onclick="joinRoom()">방 입장하기</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <h1 id="main-title">전쟁 시뮬레이터</h1>
+        
+        <!-- 상단 상태바: 생존 인원 실시간 표시 -->
+        <div id="top-status-bar" style="display: none;">
+            <div>코드: <span id="display-room-code" class="room-code-tag">----</span></div>
+            <div>내 팀: <span id="display-my-team" class="team-tag">--</span></div>
+            <div class="status-msg" id="status-message">플레이어를 기다리고 있습니다...</div>
+        </div>
+
+        <canvas id="battleCanvas"></canvas>
+
+        <!-- 컨트롤 패널 -->
+        <div id="control-panel">
+            <div class="panel-group">
+                <div class="panel-title">유닛 선택</div>
+                <div class="btn-grid">
+                    <button class="mini-btn unit-btn active" onclick="selectTool('rifleman')">소총병</button>
+                    <button class="mini-btn unit-btn" onclick="selectTool('assault')">돌격병</button>
+                    <button class="mini-btn unit-btn" onclick="selectTool('mg')">기관총병</button>
+                    <button class="mini-btn unit-btn" onclick="selectTool('at')">대전차병</button>
+                    <button class="mini-btn unit-btn" onclick="selectTool('apc')">장갑차</button>
+                    <button class="mini-btn unit-btn" onclick="selectTool('tank')">전차</button>
+                    <button class="mini-btn unit-btn delete-btn" onclick="selectTool('delete')">유닛 삭제</button>
+                </div>
+            </div>
+
+            <div class="action-grid">
+                <button class="action-btn ready-btn" id="ready-btn" onclick="toggleReady()">준비 완료</button>
+            </div>
+        </div>
+
+        <!-- 승리 배너 및 다시 플레이 -->
+        <div id="winner-banner">
+            <div id="winner-text">승리 팀!</div>
+            <button id="restart-btn" onclick="requestRestart()">다시 플레이 (0/2)</button>
+        </div>
+    </div>
+
+    <!-- Firebase SDK (v9 호환 모듈형 라이브러리 CDN) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+    <script>
+        // Firebase 설정
+        const firebaseConfig = {
+            apiKey: "AIzaSyBSyuDOsF6IopZ9LAEhQLYBlfZS2X6buu4",
+            authDomain: "yunsopchat.firebaseapp.com",
+            projectId: "yunsopchat",
+            messagingSenderId: "1073549495321"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        const canvas = document.getElementById("battleCanvas");
+        const ctx = canvas.getContext("2d");
+        const lobbyOverlay = document.getElementById("lobby-overlay");
+        const topStatusBar = document.getElementById("top-status-bar");
+        const displayRoomCode = document.getElementById("display-room-code");
+        const displayMyTeam = document.getElementById("display-my-team");
+        const statusMessage = document.getElementById("status-message");
+        const readyBtn = document.getElementById("ready-btn");
+        const winnerBanner = document.getElementById("winner-banner");
+        const winnerText = document.getElementById("winner-text");
+        const restartBtn = document.getElementById("restart-btn");
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        let roomCode = "";
+        let myRole = ""; // 'host' (blue) or 'guest' (red)
+        let myTeam = "";
+        let roomUnsubscribe = null;
+
+        let currentTool = 'rifleman';
+        let battleState = 'waiting'; // waiting, placing, fighting, ended
+        let isReady = false;
+        let isOpponentReady = false;
+        let restartVotes = 0;
+        let hasVotedRestart = false;
+
+        let units = [];
+        let projectiles = [];
+        let explosions = [];
+        let isMouseDown = false;
+
+        const UNIT_SPECS = {
+            rifleman: { name: '소총병', hp: 100, isVehicle: false, speed: 3, attackCD: 0.7, r: 9, code: 'R' },
+            assault: { name: '돌격병', hp: 100, isVehicle: false, speed: 3.5, attackCD: 0.9, r: 9, code: 'AS' },
+            mg: { name: '기관총병', hp: 100, isVehicle: false, speed: 2, attackCD: 0.1, maxAmmo: 50, reloadTime: 1.0, r: 10, code: 'MG' },
+            at: { name: '대전차병', hp: 100, isVehicle: false, speed: 2, attackCD: 2.0, r: 11, code: 'AT' },
+            apc: { name: '장갑차', hp: 550, isVehicle: true, speed: 5, attackCD: 0.1, maxAmmo: 50, reloadTime: 1.1, r: 16, width: 34, height: 22, code: 'APC' },
+            tank: { name: '전차', hp: 900, isVehicle: true, speed: 5, attackCD: 1.5, r: 22, width: 44, height: 28, code: 'TANK' }
+        };
+
+        function generate4DigitCode() {
+            return Math.floor(1000 + Math.random() * 9000).toString();
+        }
+
+        async function createRoom() {
+            roomCode = generate4DigitCode();
+            myRole = 'host';
+            myTeam = 'blue';
+
+            const roomRef = db.collection("rooms").doc(roomCode);
+            await roomRef.set({
+                code: roomCode,
+                status: 'waiting',
+                blueUnits: [],
+                redUnits: [],
+                blueReady: false,
+                redReady: false,
+                restartVotes: 0,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            enterLobbyUI();
+            listenRoomData(roomRef);
+        }
+
+        async function joinRoom() {
+            const inputCode = document.getElementById("room-code-input").value.trim();
+            if (!inputCode || inputCode.length !== 4) {
+                alert("올바른 4자리 방 코드를 입력하세요.");
+                return;
+            }
+
+            const roomRef = db.collection("rooms").doc(inputCode);
+            const doc = await roomRef.get();
+            if (!doc.exists) {
+                alert("존재하지 않는 방입니다.");
+                return;
+            }
+
+            const roomData = doc.data();
+            if (roomData.status !== 'waiting') {
+                alert("이미 게임이 진행 중이거나 가득 찬 방입니다.");
+                return;
+            }
+
+            roomCode = inputCode;
+            myRole = 'guest';
+            myTeam = 'red';
+
+            await roomRef.update({
+                status: 'ready_phase'
+            });
+
+            enterLobbyUI();
+            listenRoomData(roomRef);
+        }
+
+        function enterLobbyUI() {
+            lobbyOverlay.style.display = 'none';
+            topStatusBar.style.display = 'flex';
+            displayRoomCode.textContent = roomCode;
+            displayMyTeam.textContent = myTeam.toUpperCase();
+            displayMyTeam.style.color = myTeam === 'blue' ? '#3b82f6' : '#ef4444';
+            battleState = 'placing';
+        }
+
+        function selectTool(tool) {
+            currentTool = tool;
+            document.querySelectorAll('.unit-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        async function toggleReady() {
+            if (battleState !== 'placing') return;
+            isReady = !isReady;
+            readyBtn.textContent = isReady ? "준비 취소" : "준비 완료";
+            readyBtn.style.background = isReady ? "#eab308" : "rgba(34, 197, 94, 0.8)";
+
+            const roomRef = db.collection("rooms").doc(roomCode);
+            const myUnitsData = units.filter(u => u.team === myTeam).map(u => ({
+                x: u.x, y: u.y, type: u.type
+            }));
+
+            if (myRole === 'host') {
+                await roomRef.update({
+                    blueUnits: myUnitsData,
+                    blueReady: isReady
+                });
+            } else {
+                await roomRef.update({
+                    redUnits: myUnitsData,
+                    redReady: isReady
+                });
+            }
+        }
+
+        function listenRoomData(roomRef) {
+            roomUnsubscribe = roomRef.onSnapshot(doc => {
+                if (!doc.exists) return;
+                const data = doc.data();
+
+                if (myRole === 'host') {
+                    isOpponentReady = data.redReady;
+                } else {
+                    isOpponentReady = data.blueReady;
+                }
+
+                if (battleState === 'placing') {
+                    if (data.status === 'waiting') {
+                        statusMessage.textContent = "플레이어를 기다리고 있습니다...";
+                    } else if (!isReady && !isOpponentReady) {
+                        statusMessage.textContent = "유닛을 배치하세요.";
+                    } else {
+                        statusMessage.textContent = isReady && isOpponentReady ? "양쪽 모두 준비 완료! 전투 시작!" : (isReady ? "상대방의 준비를 기다리는 중..." : "준비 버튼을 누르세요.");
+                    }
+                }
+
+                // 양쪽 모두 준비되면 전투 시작
+                if (data.blueReady && data.redReady && battleState === 'placing') {
+                    startOnlineBattle(data.blueUnits || [], data.redUnits || []);
+                }
+
+                // 다시 플레이 투표 수 동기화
+                if (data.restartVotes !== undefined) {
+                    restartVotes = data.restartVotes;
+                    restartBtn.textContent = `다시 플레이 (${restartVotes}/2)`;
+                    if (restartVotes >= 2 && battleState === 'ended') {
+                        resetToPlacingPhase();
+                    }
+                }
+            });
+        }
+
+        function startOnlineBattle(blueUnitsData, redUnitsData) {
+            battleState = 'fighting';
+            document.getElementById('control-panel').style.display = 'none';
+
+            units = [];
+            blueUnitsData.forEach(u => units.push(new Unit(u.x, u.y, 'blue', u.type)));
+            redUnitsData.forEach(u => units.push(new Unit(u.x, u.y, 'red', u.type)));
+        }
+
+        async function requestRestart() {
+            if (hasVotedRestart) return;
+            hasVotedRestart = true;
+            restartBtn.disabled = true;
+
+            const roomRef = db.collection("rooms").doc(roomCode);
+            await roomRef.update({
+                restartVotes: firebase.firestore.FieldValue.increment(1)
+            });
+        }
+
+        async function resetToPlacingPhase() {
+            battleState = 'placing';
+            isReady = false;
+            isOpponentReady = false;
+            hasVotedRestart = false;
+            restartVotes = 0;
+            restartBtn.disabled = false;
+            restartBtn.textContent = "다시 플레이 (0/2)";
+            winnerBanner.style.display = 'none';
+            document.getElementById('control-panel').style.display = 'flex';
+            readyBtn.textContent = "준비 완료";
+            readyBtn.style.background = "rgba(34, 197, 94, 0.8)";
+            units = [];
+            projectiles = [];
+            explosions = [];
+
+            if (myRole === 'host') {
+                await db.collection("rooms").doc(roomCode).update({
+                    blueReady: false,
+                    redReady: false,
+                    blueUnits: [],
+                    redUnits: [],
+                    restartVotes: 0
+                });
+            }
+        }
+
+        class Unit {
+            constructor(x, y, team, type) {
+                this.x = x; this.y = y; this.team = team; this.type = type;
+                const spec = UNIT_SPECS[type];
+                this.maxHp = spec.hp; this.hp = spec.hp;
+                this.isVehicle = spec.isVehicle;
+                this.speed = spec.speed * 20;
+                this.attackCD = spec.attackCD;
+                this.r = spec.r;
+                this.cooldown = 0;
+                this.ammo = spec.maxAmmo || 0;
+                this.reloading = false;
+                this.reloadTimer = 0;
+                this.angle = team === 'blue' ? 0 : Math.PI;
+                this.isMoving = false;
+                this.target = null;
+            }
+
+            update(dt) {
+                if (this.hp <= 0) return;
+                if (this.cooldown > 0) this.cooldown -= dt;
+                if (this.reloading) {
+                    this.reloadTimer -= dt;
+                    if (this.reloadTimer <= 0) {
+                        this.reloading = false;
+                        this.ammo = UNIT_SPECS[this.type].maxAmmo;
+                    }
+                }
+
+                const enemies = units.filter(u => u.team !== this.team && u.hp > 0);
+                if (enemies.length === 0) { this.isMoving = false; return; }
+
+                let closest = null; let minDist = Infinity;
+                for (let enemy of enemies) {
+                    let d = Math.hypot(enemy.x - this.x, enemy.y - this.y);
+                    if (d < minDist) { minDist = d; closest = enemy; }
+                }
+                this.target = closest;
+
+                if (closest) {
+                    let targetAngle = Math.atan2(closest.y - this.y, closest.x - this.x);
+                    this.angle = targetAngle;
+                    let attackRange = this.type === 'assault' ? 25 : (this.isVehicle ? 350 : 250);
+                    
+                    if (minDist > attackRange) {
+                        this.isMoving = true;
+                        this.x += Math.cos(this.angle) * this.speed * dt;
+                        this.y += Math.sin(this.angle) * this.speed * dt;
+                        this.x = Math.max(15, Math.min(canvas.width - 15, this.x));
+                        this.y = Math.max(15, Math.min(canvas.height - 15, this.y));
+                    } else {
+                        this.isMoving = false;
+                        if (this.cooldown <= 0 && !this.reloading) this.attack(closest);
+                    }
+                }
+            }
+
+            attack(target) {
+                this.cooldown = this.attackCD;
+                if (this.type === 'rifleman' || this.type === 'mg' || this.type === 'apc') {
+                    let dmg = Math.random() < 0.2 ? 100 : 60;
+                    projectiles.push(new Bullet(this.x, this.y, target, 'bullet', this.team, dmg, 0.6));
+                } else if (this.type === 'assault') {
+                    let dmg = Math.random() < 0.2 ? 65 : 85;
+                    if (target.isVehicle) dmg /= 15;
+                    target.takeDamage(dmg, 'melee');
+                } else if (this.type === 'at') {
+                    projectiles.push(new Rocket(this.x, this.y, target, 'at_rocket', this.team, 0.6));
+                } else if (this.type === 'tank') {
+                    projectiles.push(new CannonShell(this.x, this.y, target, 'tank_shell', this.team, 0.5));
+                }
+            }
+
+            takeDamage(dmg, type) {
+                let actualDmg = dmg;
+                if (this.isVehicle) {
+                    if (type === 'bullet') actualDmg = dmg * 0.1;
+                    else if (type === 'at_rocket') actualDmg = 500;
+                    else if (type === 'tank_shell') actualDmg = 530;
+                    else if (type === 'melee') actualDmg = dmg;
+                }
+                this.hp -= actualDmg;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                const color = this.team === 'blue' ? '#3b82f6' : '#ef4444';
+                const darkColor = this.team === 'blue' ? '#1d4ed8' : '#b91c1c';
+
+                if (!this.isVehicle) {
+                    ctx.save(); ctx.rotate(this.angle);
+                    ctx.beginPath(); ctx.arc(0, 0, this.r, 0, Math.PI * 2);
+                    ctx.fillStyle = color; ctx.fill(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
+                    ctx.restore();
+                    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 9px sans-serif';
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText(UNIT_SPECS[this.type].code, 0, 0);
+                } else {
+                    ctx.save(); ctx.rotate(this.angle);
+                    const spec = UNIT_SPECS[this.type];
+                    ctx.fillStyle = color; ctx.fillRect(-spec.width / 2, -spec.height / 2, spec.width, spec.height);
+                    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.strokeRect(-spec.width / 2, -spec.height / 2, spec.width, spec.height);
+                    ctx.restore();
+                    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 10px sans-serif';
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText(UNIT_SPECS[this.type].code, 0, 0);
+                }
+                ctx.restore();
+
+                if (this.hp < this.maxHp) {
+                    const barW = this.isVehicle ? 34 : 22;
+                    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                    ctx.fillRect(this.x - barW / 2, this.y - this.r - 12, barW, 4);
+                    ctx.fillStyle = this.team === 'blue' ? '#60a5fa' : '#f87171';
+                    ctx.fillRect(this.x - barW / 2, this.y - this.r - 12, Math.max(0, (this.hp / this.maxHp) * barW), 4);
+                }
+            }
+        }
+
+        class Bullet {
+            constructor(sx, sy, target, type, team, damage, hitRate) {
+                this.sx = sx; this.sy = sy; this.target = target; this.type = type; this.team = team; this.damage = damage; this.speed = 600;
+                let isHit = Math.random() < hitRate;
+                this.tx = isHit ? target.x : target.x + (Math.random() - 0.5) * 80;
+                this.ty = isHit ? target.y : target.y + (Math.random() - 0.5) * 80;
+                this.willHit = isHit; this.x = sx; this.y = sy;
+                let angle = Math.atan2(this.ty - sy, this.tx - sx);
+                this.vx = Math.cos(angle) * this.speed; this.vy = Math.sin(angle) * this.speed; this.alive = true;
+            }
+            update(dt) {
+                this.x += this.vx * dt; this.y += this.vy * dt;
+                if (Math.hypot(this.tx - this.x, this.ty - this.y) < 15) {
+                    this.alive = false;
+                    if (this.willHit && this.target && this.target.hp > 0) this.target.takeDamage(this.damage, this.type);
+                }
+            }
+            draw() { ctx.beginPath(); ctx.arc(this.x, this.y, 2, 0, Math.PI * 2); ctx.fillStyle = '#fde047'; ctx.fill(); }
+        }
+
+        class Rocket {
+            constructor(sx, sy, target, type, team, hitRate) {
+                this.sx = sx; this.sy = sy; this.target = target; this.type = type; this.team = team; this.speed = 350;
+                let isHit = Math.random() < hitRate;
+                this.tx = isHit ? target.x : target.x + (Math.random() - 0.5) * 120;
+                this.ty = isHit ? target.y : target.y + (Math.random() - 0.5) * 120;
+                this.x = sx; this.y = sy;
+                let angle = Math.atan2(this.ty - sy, this.tx - sx);
+                this.vx = Math.cos(angle) * this.speed; this.vy = Math.sin(angle) * this.speed; this.alive = true;
+            }
+            update(dt) {
+                this.x += this.vx * dt; this.y += this.vy * dt;
+                if (Math.hypot(this.tx - this.x, this.ty - this.y) < 15) {
+                    this.alive = false; explode(this.x, this.y, 30, 230);
+                }
+            }
+            draw() { ctx.beginPath(); ctx.arc(this.x, this.y, 4, 0, Math.PI * 2); ctx.fillStyle = '#fb923c'; ctx.fill(); }
+        }
+
+        class CannonShell {
+            constructor(sx, sy, target, type, team, hitRate) {
+                this.sx = sx; this.sy = sy; this.target = target; this.type = type; this.team = team; this.speed = 450;
+                let isHit = Math.random() < hitRate;
+                this.tx = isHit ? target.x : target.x + (Math.random() - 0.5) * 140;
+                this.ty = isHit ? target.y : target.y + (Math.random() - 0.5) * 140;
+                this.x = sx; this.y = sy;
+                let angle = Math.atan2(this.ty - sy, this.tx - sx);
+                this.vx = Math.cos(angle) * this.speed; this.vy = Math.sin(angle) * this.speed; this.alive = true;
+            }
+            update(dt) {
+                this.x += this.vx * dt; this.y += this.vy * dt;
+                if (Math.hypot(this.tx - this.x, this.ty - this.y) < 15) {
+                    this.alive = false; explode(this.x, this.y, 60, 550);
+                }
+            }
+            draw() { ctx.beginPath(); ctx.arc(this.x, this.y, 5, 0, Math.PI * 2); ctx.fillStyle = '#f43f5e'; ctx.fill(); }
+        }
+
+        function explode(x, y, radiusPx, baseDamage) {
+            explosions.push({ x, y, radius: radiusPx, timer: 0.3 });
+            for (let u of units) {
+                if (u.hp <= 0) continue;
+                if (Math.hypot(u.x - x, u.y - y) <= radiusPx) u.takeDamage(baseDamage, 'explosion');
+            }
+        }
+
+        function handleCanvasAction(x, y) {
+            if (battleState !== 'placing') return;
+            if (currentTool === 'delete') {
+                let minD = 25; let targetIdx = -1;
+                units.forEach((u, idx) => {
+                    if (u.team === myTeam) {
+                        let d = Math.hypot(u.x - x, u.y - y);
+                        if (d < minD) { minD = d; targetIdx = idx; }
+                    }
+                });
+                if (targetIdx !== -1) units.splice(targetIdx, 1);
+            } else {
+                // 진영별 배치 구역 제한 (블루팀은 왼쪽 영역, 레드팀은 오른쪽 영역)
+                if (myTeam === 'blue' && x > canvas.width / 2 - 20) return;
+                if (myTeam === 'red' && x < canvas.width / 2 + 20) return;
+                units.push(new Unit(x, y, myTeam, currentTool));
+            }
+        }
+
+        canvas.addEventListener('mousedown', (e) => { isMouseDown = true; handleCanvasAction(e.clientX, e.clientY); });
+        canvas.addEventListener('mousemove', (e) => { if (isMouseDown) handleCanvasAction(e.clientX, e.clientY); });
+        window.addEventListener('mouseup', () => isMouseDown = false);
+
+        function drawBackground() {
+            ctx.fillStyle = '#2d6a37';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.setLineDash([8, 8]);
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        let lastTime = performance.now();
+        function loop(now) {
+            let dt = (now - lastTime) / 1000;
+            if (dt > 0.1) dt = 0.1;
+            lastTime = now;
+
+            drawBackground();
+
+            // 실시간 생존 인원 계산 및 상단 상태바 갱신
+            const blueCount = units.filter(u => u.team === 'blue').length;
+            const redCount = units.filter(u => u.team === 'red').length;
+            if (battleState === 'fighting' || battleState === 'ended') {
+                statusMessage.innerHTML = `<span style="color:#3b82f6;">BLUE: ${blueCount}</span> vs <span style="color:#ef4444;">RED: ${redCount}</span>`;
+            }
+
+            if (battleState === 'fighting') {
+                units.forEach(u => u.update(dt));
+                projectiles.forEach(p => p.update(dt));
+                projectiles = projectiles.filter(p => p.alive);
+                units = units.filter(u => u.hp > 0);
+
+                if (blueCount === 0 || redCount === 0) {
+                    battleState = 'ended';
+                    winnerBanner.style.display = 'flex';
+                    if (blueCount > 0) {
+                        winnerText.textContent = 'BLUE 팀 승리!';
+                        winnerText.style.color = '#60a5fa';
+                    } else if (redCount > 0) {
+                        winnerText.textContent = 'RED 팀 승리!';
+                        winnerText.style.color = '#f87171';
+                    } else {
+                        winnerText.textContent = '무승부!';
+                        winnerText.style.color = '#facc15';
+                    }
+                }
+            }
+
+            for (let i = explosions.length - 1; i >= 0; i--) {
+                let exp = explosions[i];
+                exp.timer -= dt;
+                ctx.beginPath();
+                ctx.arc(exp.x, exp.y, exp.radius * (1 - exp.timer / 0.3), 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(249, 115, 22, ${exp.timer / 0.3})`;
+                ctx.fill();
+                if (exp.timer <= 0) explosions.splice(i, 1);
+            }
+
+            units.forEach(u => u.draw());
+            projectiles.forEach(p => p.draw());
+
+            requestAnimationFrame(loop);
+        }
+
+        requestAnimationFrame(loop);
+    </script>
+</body>
+  </html>
